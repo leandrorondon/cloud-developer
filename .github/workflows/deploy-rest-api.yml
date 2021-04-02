@@ -1,17 +1,17 @@
-name: Deploy Image Filter service on AWS Elastic Beanstalk
+name: Deploy Udagram REST API on AWS Elastic Beanstalk
 on:
   push:
     branches: [ master ]
     paths:
-      - 'course-02/project/image-filter-starter-code/**'
-      - '!course-02/project/image-filter-starter-code/*.md'
+      - 'course-02/exercises/udacity-c2-restapi/**'
+      - '!course-02/exercises/udacity-c2-restapi/*.md'
   workflow_dispatch:
 defaults:
   run:
-    working-directory: course-02/project/image-filter-starter-code
+    working-directory: course-02/exercises/udacity-c2-restapi
 jobs:
   build_and_deploy:
-    name: Deploy Image Filter service
+    name: Deploy Udagram REST API
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2        
@@ -49,7 +49,7 @@ jobs:
           eb --version
       - name: Initialize Elastic Beanstalk
         run: |
-          eb init -i ${{secrets.AWS_UDAGRAM_IMAGEFILTER_APP_NAME}} -p "${{secrets.AWS_UDAGRAM_PLATFORM}}" -k github_actions --region ${{secrets.AWS_UDAGRAM_REGION}}
+          eb init -i ${{secrets.AWS_UDAGRAM_RESTAPI_APP_NAME}} -p "${{secrets.AWS_UDAGRAM_PLATFORM}}" -k github_actions --region ${{secrets.AWS_UDAGRAM_REGION}}
       - name: Configure deploy artifact
         run: |
           echo -e "deploy:\n  artifact: ./www/Archive.zip"  >> .elasticbeanstalk/config.yml 

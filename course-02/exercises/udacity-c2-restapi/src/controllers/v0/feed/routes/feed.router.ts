@@ -2,6 +2,9 @@ import { Router, Request, Response } from 'express';
 import { FeedItem } from '../models/FeedItem';
 import { requireAuth } from '../../users/routes/auth.router';
 import * as AWS from '../../../../aws';
+import { v4 as uuidv4 } from 'uuid';
+import { downloadFilteredImage } from '../../../../api/imagefilter';
+import { deleteLocalFile, extractToken } from '../../../../util/util'
 
 const router: Router = Router();
 
@@ -19,7 +22,6 @@ router.get('/', async (req: Request, res: Response) => {
 // Get specific item by primary key
 router.get('/:id', async (req: Request, res: Response) => {
     let { id } = req.params;
-    console.log(id);
     const item = await FeedItem.findByPk(id);
     item.url = AWS.getGetSignedUrl(item.url);
     res.send(item);
@@ -39,8 +41,9 @@ router.get('/signed-url/:fileName',
     requireAuth, 
     async (req: Request, res: Response) => {
     let { fileName } = req.params;
+    fileName = uuidv4() + "_" + fileName;
     const url = AWS.getPutSignedUrl(fileName);
-    res.status(201).send({url: url});
+    res.status(201).send({url: url, file_name: fileName});
 });
 
 // Post meta data and the filename after a file is uploaded 
@@ -50,6 +53,7 @@ router.post('/',
     requireAuth, 
     async (req: Request, res: Response) => {
     const caption = req.body.caption;
+    const filter = req.body.filter;
     const fileName = req.body.url;
 
     // check Caption is valid
@@ -67,10 +71,29 @@ router.post('/',
             url: fileName
     });
 
+    const signed_url = AWS.getGetSignedUrl(fileName);
     const saved_item = await item.save();
+    saved_item.url = signed_url
 
-    saved_item.url = AWS.getGetSignedUrl(saved_item.url);
-    res.status(201).send(saved_item);
+    if (filter) {
+        const token = extractToken(req)
+        const localPath = "/tmp/" + fileName
+        downloadFilteredImage(token, signed_url, localPath)
+        .then(() =>{
+            AWS.uploadFile(localPath, fileName).then(() => {
+                deleteLocalFile(localPath)
+                res.status(201).send(saved_item);
+            }, (err) => {
+                console.log(err);
+                res.status(500).send("cannot save filtered image");
+            })
+        }, (r) => {
+            console.error(r)
+            res.status(500).send("failed to filter image");
+        })
+    } else {
+        res.status(201).send(saved_item);
+    }
 });
 
 export const FeedRouter: Router = router;
